@@ -1,87 +1,75 @@
-import pandas  as pd
+
 import streamlit as st
+import pandas as pd
+from sklearn.linear_model import LinearRegression
 
-dados = pd.read_cvs('dados.cvs')
+# Título do Aplicativo
+st.header("Previsão de Vendas")
 
-print(dados)
+# Dados: [Investimento em Marketing] -> Faturamento
+dados_vendas = pd.DataFrame({
+    'investimento': [100, 200, 300, 400, 500, 600],
+    'faturamento': [1200, 2500, 3200, 4800, 5100, 6300]
+})
 
-st.header('Analise de vendas')
+# Treinamento do Modelo de Regressão Linear
+modelo_vendas = LinearRegression()
+modelo_vendas.fit(dados_vendas[['investimento']], dados_vendas['faturamento'])
 
-df= pd.DataFrame(dados)
+# Visualização dos dados passados (Gráfico de Dispersão / Linha)
+st.subheader("Histórico de Investimento vs Faturamento")
+st.line_chart(dados_vendas, x='investimento', y='faturamento')
 
-st.bar_chart(df, x = 'vendedor', y = 'vendas' )
+# Interatividade com o Usuário (Controle Deslizante / Slider)
+investimento_usuario = st.slider(
+    'Selecione o valor do investimento em propaganda (R$):',
+    min_value=0,
+    max_value=1000,
+    value=300,
+    step=50
+)
 
-x = np.array([ 
-  
-  [1,5],
-  [1,3],
-  [2,5]])
+# Previsão
+faturamento_previsto = modelo_vendas.predict([[investimento_usuario]])
 
-# import pandas as pd 
-# import streamlit as st
-from sklearn.tree import DecisionTreeClassifier
-# import numpy as np
+# Exibição do Resultado
+st.metric(
+    label="Faturamento Estimado",
+    value=f"R$ {faturamento_previsto[0]:,.2f}"
+)
 
-
-# dados =  pd.read_csv('dados.csv')
-# print(dados)
-# st.header('Analise de Vendas')
-# df = pd.DataFrame(dados)
-# # st.bar_chart(df, x = 'vendedor', y = 'vendas' )
-
-
-# X = np.array([df['vendas'], df['ano']])
-# y = np.array([df['vendas']])
-
-
-# model= DecisionTreeClassifier()
-# m = model.fit(X,y)
-
-
-# print(m.predict([[10000, 2027]]))
-
-
-
-# NOTAS DE dados 
 
 
 import streamlit as st
 import pandas as pd
-# from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression
 
+st.title("Previsão de Vendas")
 
-
-dados_ = pd.read_csv('dados.csv')
-print(dados_)
-
-
-# st.header('ANALISE DE NOTAS - PREVENDO')
-
-
-
-x  =  list(dados_['horas_nas_redes'])
-print(x)
-y  = list(dados_['aprovados_curso'])
-print(y)
-
-
-dados = pd.DataFrame({
-'horas_nas_redes':x,
-'aprovados':y
+# Base de dados historica
+df = pd.DataFrame({
+    'investimento': [100, 200, 300, 400, 500, 600],
+    'faturamento': [1200, 2500, 3200, 4800, 5100, 6300]
 })
 
+# Separando x e y pro modelo
+X = df[['investimento']]
+y = df['faturamento']
 
-print(dados)
+# Treinando a regressao linear
+modelo = LinearRegression()
+modelo.fit(X, y)
 
+# Interface
+st.write("Digite o valor do investimento para prever o faturamento:")
 
-# st.scatter_chart(dados, x = 'ano', y= 'vendas')
-modelo_escola = DecisionTreeClassifier() 
-modelo_escola.fit(dados[['horas_nas_redes']], dados['aprovados'])
+valor_investido = st.number_input("Valor em Marketing (R$)", min_value=0.0, value=300.0)
 
+if st.button("Prever"):
+    previsao = modelo.predict([[valor_investido]])[0]
+    st.success(f"Faturamento estimado: R$ {previsao:.2f}")
 
-h_estudo = st.number_input('Digite a quantidade de horas nas redes sociais ')
-nota_final = modelo_escola.predict([[h_estudo]])
-print(nota_final)
-
-
-st.metric(f'Resultado ' ,f'{min(nota_final[0],1):.1f}')
+# Mostra a tabela e o grafico simples dos dados
+st.subheader("Dados Históricos")
+st.dataframe(df)
+st.line_chart(df.set_index('investimento'))
