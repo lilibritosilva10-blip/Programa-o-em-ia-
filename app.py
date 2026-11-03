@@ -1,71 +1,62 @@
-import cv2
-import mediapipe as mp
-import pyautogui
-import numpy as np
+import os
+import streamlit as st
+from groq import Groq
 
+# Configuração da página
+st.set_page_config(page_title="Meu Agente de IA", page_icon="🤖")
+st.title("🤖 Meu Agente de IA")
 
-# Configuração de segurança do PyAutoGUI (mova o mouse para o canto da tela para travar se necessário)
-pyautogui.FAILSAFE = True
+# Inicialização do cliente Groq
+# Certifique-se de configurar a GROQ_API_KEY no seu ambiente local ou Streamlit Secrets
+api_key = os.environ.get("GROQ_API_KEY")
 
+if not api_key:
+    st.error("Chave de API da Groq não encontrada. Configure a variável GROQ_API_KEY.")
+    st.stop()
 
-def iniciar_controle_mouse_invisivel():
-    print("🚀 Iniciando rastreamento de mãos em segundo plano...")
-    print("💡 Mova o seu dedo indicador para controlar o cursor. Pressione Ctrl+C no terminal para parar.")
+client = Groq(api_key=api_key)
 
+# Prompt do Agente (COSTAR)
+SYSTEM_PROMPT = """
+Context: Você é um assistente especializado em ajudar usuários com dúvidas sobre estudos.
+Objective: Responder dúvidas de forma simples, didática e direta.
+Style: Educativo e estruturado.
+Tone: Amigável e motivador.
+Audience: Estudantes.
+Response: Use bullet points quando apropriado e seja objetivo.
+"""
 
-    mp_hands = mp.solutions.hands
-    hands = mp_hands.Hands(
-        max_num_hands=1,
-        min_detection_confidence=0.7,
-        min_tracking_confidence=0.7
-    )
+# Histórico de mensagens no Streamlit
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
+# Exibe histórico de chat
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    cap = cv2.VideoCapture(0)
-    screen_width, screen_height = pyautogui.size()
+# Entrada do usuário
+if user_input := st.chat_input("Como posso ajudar você hoje?"):
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-
-    try:
-        while cap.isOpened():
-            success, frame = cap.read()
-            if not success:
-                print("Erro: Não foi possível aceder à câmara.")
-                break
-
-
-            # Espelha a imagem para o movimento ser natural
-            frame = cv2.flip(frame, 1)
-            h, w, _ = frame.shape
+    # Chamada para a API da Groq
+    with st.chat_message("assistant"):
+        try:
+            messages_payload = [{"role": "system", "content": SYSTEM_PROMPT}] + [
+                {"role": m["role"], "content": m["content"]} for m in st.session_state.messages
+            ]
             
-            # Converte para RGB para o MediaPipe processar
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = hands.process(rgb_frame)
-
-
-            if results.multi_hand_landmarks:
-                for hand_landmarks in results.multi_hand_landmarks:
-                    # Pega as coordenadas da ponta do dedo indicador (Landmark 8)
-                    index_finger = hand_landmarks.landmark[8]
-                    
-                    # Mapeia as coordenadas normalizadas (0.0 a 1.0) para a resolução da tela
-                    screen_x = np.interp(index_finger.x, [0.15, 0.85], [0, screen_width])
-                    screen_y = np.interp(index_finger.y, [0.15, 0.85], [0, screen_height])
-
-
-                    # Move o cursor do mouse instantaneamente sem atraso e sem mostrar janelas
-                    try:
-                        pyautogui.moveTo(screen_x, screen_y, _pause=False)
-                    except Exception:
-                        pass
-
-
-    except KeyboardInterrupt:
-        print("\n🛑 Controlo de mouse encerrado pelo utilizador.")
-    finally:
-        cap.release()
-        cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    iniciar_controle_mouse_invisivel()
-    
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages_payload,
+                temperature=0.7,
+            )
+            
+            bot_reply = response.choices[0].message.content
+            st.markdown(bot_reply)
+            st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+            
+        except Exception as e:
+            st.error(f"Erro ao comunicar com a API da Groq: {e}")
